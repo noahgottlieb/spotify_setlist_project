@@ -4,31 +4,33 @@ import os
 import base64 
 from requests import post,get
 import json
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+
 load_dotenv()
 
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 
-
-def get_token():
-    #Concat client id and client secret, encode in base 64 pass to spotify and get access token
-    auth_string = client_id + ":" + client_secret
-    auth_bytes = auth_string.encode("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes), "utf_8")
-
-    url = "https://accounts.spotify.com/api/token"
-    headers = {
-        "Authorization": "Basic " + auth_base64,
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {"grant_type": "client_credentials"}
-    result = post(url, headers=headers, data=data)
-    json_results = json.loads(result.content)
-    token = json_results["access_token"]
-    return token
+scope = " playlist-modify-public playlist-modify-private playlist-read-private"   # Add necessary scopes here
+token = spotipy.util.prompt_for_user_token(
+    username=None,
+    scope=scope,
+    client_id=client_id,
+    client_secret=client_secret,
+    redirect_uri="http://localhost/",
+)
 
 def get_auth_header(token):
     return {"Authorization": "Bearer " + token}
+
+def make_playlist(token, playlist_name, playlist_description, user_id):
+    sp = spotipy.Spotify(auth=token)
+    sp.trace = False  # Disable request logging (optional)
+
+    # Set up playlist details
+    playlist = sp.user_playlist_create(user_id, playlist_name, public=False, description=playlist_description)
+    return playlist
 
 def search_for_artist(token, artist_name):
     url = "https://api.spotify.com/v1/search"
@@ -49,15 +51,28 @@ def get_songs_by_artist (token, artist_id):
     json_result = json.loads(result.content)["tracks"]
     return json_result
 
-token = get_token()
-result = search_for_artist(token,"drake")
-artist_id = result["id"]
+def add_song_to_playlist(playlist_id,token,track_uris):
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+    headers = get_auth_header(token)
+    result = post(url,headers=headers, json = track_uris)
+    print(result)
+    #print(f"{track_uris} added to {playlist_id} successfully")
 
-songs = get_songs_by_artist(token, artist_id)
+user_id = 'w7yp1pgf2uijxhie92zllkt1g'
+playlist_name = "Noah's Mac Miller playlist"
+playlist_description = "my THIRD playlist created through an API"
 
+playlist_id = make_playlist(token,playlist_name,playlist_description,user_id)["id"]
+#playlist_id = "1bVr4uiyCYEaxNIMDekEWQ"
 
-#for idx,song in enumerate(songs):
-#    print(f"{idx+1} {song['name']}")
+artist_id = search_for_artist(token,"mac miller")["id"]
 
+#track_uris = ["spotify:track:5iUQMwxUPdJBFeGkePtM66","spotify:track:1DWZUa5Mzf2BwzpHtgbHPY"]
+songs = get_songs_by_artist(token,artist_id)
+
+track_uris =[]
 for idx,song in enumerate(songs):
-    print(song['name'])
+    track_uris.append(song['uri'])
+
+#print(songs_list)
+add_song_to_playlist(playlist_id,token,track_uris)
