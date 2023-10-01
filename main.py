@@ -1,3 +1,4 @@
+
 #Load Environment variables
 from dotenv import load_dotenv
 import os
@@ -6,6 +7,7 @@ import json
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from datetime import datetime
+import pandas as pd
 
 load_dotenv()
 #Pull Environment variables from .env file
@@ -135,13 +137,51 @@ def get_playlist_title(api,artist_name,index):
     state =unpack['venue']['city']['state']
     country = unpack['venue']['city']['country']['name']
     if tour_name != None:
-        playlist_title = tour_name + ' on '+formatted_tour_date + ' at ' +venue +' in ' + city+', '+state + ', ' + country
+        playlist_title = artist_name.title() + ' ' + tour_name + ' on '+formatted_tour_date
+        playlist_description = 'Played at ' + venue +' in ' + city+', '+state + ', ' + country
+
     else:
-        playlist_title = artist_name.title() + ' on '+formatted_tour_date + ' at ' +venue +' in ' + city+', '+state + ', ' + country
+        playlist_title = artist_name.title() + ' on '+formatted_tour_date
+        playlist_description = 'Played at ' + venue +' in ' + city+', '+state + ', ' + country
 
 
-    return playlist_title
+    return [playlist_title,playlist_description]
 
+def format_song_and_artist(token,set,track_uris):
+    index = 0
+    for sets in set:
+   
+     for songs in sets['song']:
+
+    #Ignore the tape variables, these are just songs played prior to the show starting
+        try:
+           songs['tape']
+        except KeyError:
+            try:
+                #If there is a cover in the set list, add to the dataframe
+               if  len(songs['cover']) > 0:
+
+                artist_name = songs['cover']['sortName']            
+                artist_id = search_for_artist(token,artist_name)["id"]
+                song = songs['name']
+                song_id = get_tracks(token,artist_name,song)
+
+                #Add to the track_uri list for ingestion into playlist
+                track_uris.append(song_id)
+                
+                #Add to index
+                index += 1
+
+            except KeyError:
+                artist_id = search_for_artist(token,artist)["id"]
+                song = songs['name']
+                song_id = get_tracks(token,artist,song)
+
+                track_uris.append(song_id)
+
+                index += 1
+
+    return track_uris
 #########################################################################################################################################
 """
 Here is where the execution of the code begins
@@ -153,30 +193,28 @@ artist = input("Please enter the artist you would like to get the latest setlist
 user_id = 'w7yp1pgf2uijxhie92zllkt1g'
 
 #Based on the users input, find the artists most recent, non-null setlist and the index of that setlist
+setlist ={}
 set = get_setlist_artist(setlist_api_key,artist)[0]
 index = get_setlist_artist(setlist_api_key,artist)[1]
 
+
+
 #Name the playlist based on the the details from the set
-playlist_name = get_playlist_title(setlist_api_key,artist,index)
-playlist_description = f"paylist for {artist}"
+playlist_name = get_playlist_title(setlist_api_key,artist,index)[0]
+#TODO: Update the name and description to be...better
+playlist_description = get_playlist_title(setlist_api_key,artist,index)[1]
 
 #Create a new blank playlist
 playlist_id = make_playlist(token,playlist_name,playlist_description,user_id)["id"]
 
-artist_id = search_for_artist(token,artist)["id"] 
 
-#Create a list of songs from the set and append the setlist song names to it
-setlist =[]
+#Create a list of track_uris in order of the set to pass to the playlist (Also captures covers)
+track_uris =[]
+df = pd.DataFrame(columns = ['artist_id','artist','song_id','song'])
+format_song_and_artist(token,set,track_uris)
 
-for sets in set:
-     for songs in sets['song']:
-          setlist.append(songs['name'])
-
-
-#Get only the valid track URI's from Spotipy and add to the playlist
-track_uris = []
-for song in setlist:     
-     track_uris.append(get_tracks(token,artist,song))
+#Remove any tracks the code was unable to capture
 track_uris = list(filter(lambda x: x is not None,track_uris))
 
+#Add the list of songs to your playlist
 add_song_to_playlist(playlist_id,token,track_uris)
