@@ -113,9 +113,7 @@ artist = 'kendrick lamar'
 setlist ={}
 set = get_setlist_artist(setlist_api_key,artist)[0]
 index = get_setlist_artist(setlist_api_key,artist)[1]
-print(index)
-playlist_name = get_playlist_title(setlist_api_key,artist,index)
-print(playlist_name)
+
 #TODO Get be able to iterate through multiple sets and get the songs. If we just take the 
 for sets in set:
      
