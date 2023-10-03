@@ -82,6 +82,22 @@ def add_song_to_playlist(playlist_id,token,track_uris):
     else:
         print('Your Spotify playlist is ready!')
 
+def get_other_acts(api,artist_name,index):
+    url = 'https://api.setlist.fm/rest/1.0/search/setlists'
+    headers = {
+        'Accept': 'application/json',
+        'x-api-key': api
+    }
+    params = {
+        'artistName': artist_name,
+        'p': 1
+    }
+    response = get(url,headers=headers,params=params)
+
+
+    final = json.loads(response.content)
+    return final
+
 #Get the artists most recent, filled out setlist from setlist.fm
 def get_setlist_artist(api,artist_name):
     url = 'https://api.setlist.fm/rest/1.0/search/setlists'
@@ -96,8 +112,11 @@ def get_setlist_artist(api,artist_name):
     response = get(url,headers=headers,params=params)
 
 
-    set = json.loads(response.content)["setlist"]
+    set = json.loads(response.content)['setlist']
+
+
     
+    #TODO: Provide a list of sets to choose from 
     #Iterate past blank setlists to get the most up to date filled out setlist
     finish = ''
     index = 0
@@ -197,24 +216,24 @@ setlist ={}
 set = get_setlist_artist(setlist_api_key,artist)[0]
 index = get_setlist_artist(setlist_api_key,artist)[1]
 
-
-
+other_acts = get_other_acts(setlist_api_key,artist,index)
+print(other_acts)
 #Name the playlist based on the the details from the set
-playlist_name = get_playlist_title(setlist_api_key,artist,index)[0]
+#playlist_name = get_playlist_title(setlist_api_key,artist,index)[0]
 #TODO: Update the name and description to be...better
-playlist_description = get_playlist_title(setlist_api_key,artist,index)[1]
+#playlist_description = get_playlist_title(setlist_api_key,artist,index)[1]
 
 #Create a new blank playlist
-playlist_id = make_playlist(token,playlist_name,playlist_description,user_id)["id"]
+#playlist_id = make_playlist(token,playlist_name,playlist_description,user_id)["id"]
 
 
 #Create a list of track_uris in order of the set to pass to the playlist (Also captures covers)
-track_uris =[]
-df = pd.DataFrame(columns = ['artist_id','artist','song_id','song'])
-format_song_and_artist(token,set,track_uris)
+# track_uris =[]
+# df = pd.DataFrame(columns = ['artist_id','artist','song_id','song'])
+# format_song_and_artist(token,set,track_uris)
 
-#Remove any tracks the code was unable to capture
-track_uris = list(filter(lambda x: x is not None,track_uris))
+# #Remove any tracks the code was unable to capture
+# track_uris = list(filter(lambda x: x is not None,track_uris))
 
-#Add the list of songs to your playlist
-add_song_to_playlist(playlist_id,token,track_uris)
+# #Add the list of songs to your playlist
+# add_song_to_playlist(playlist_id,token,track_uris)
